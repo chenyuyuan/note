@@ -1,0 +1,96 @@
+**Linux Live Kit** 是一个强大的工具，用于创建自定义的 Linux Live CD 或 USB 镜像。它允许你将现有的 Linux 系统转换为一个可启动的 Live 环境，方便备份、部署或快速使用。
+
+以下是使用 **Linux Live Kit** 的基本流程：
+
+1. **定制配置文件**：编辑 `.config` 文件，其中包含了可以定制的所有条目。你可以根据自己的需求定制部署计划。例如，你可以设置目标安装光盘的名字、内核位置、需要备份的目录、排除列表等。
+
+    示例配置项：
+    - `LIVEKITNAME="xxx"`：目标安装光盘的名字
+    - `VMLINUZ=/boot/vmlinuz`：内核位置
+    - `MKMOD="bin etc lib lib64 opt root sbin usr var home"`：需要备份的目录
+    - `EXCLUDE="/etc/fstab /etc/mtab"`：排除列表
+
+2. **备份**：运行 `build` 脚本，该脚本会将系统目录打包为 `squashfs` 镜像文件，并保留必要的驱动模块。
+
+3. **部署**：对于生成的 ISO 文件，你可以创建一个虚拟机并加载该 ISO 文件，以验证是否能够正确启动。如果只是备份和快速使用，Live 环境已经足够。如果需要安装到实际系统，可以参考 Arch 或 Gentoo 的文档，规划文件系统、挂载、拷贝文件等步骤。
+
+4. **排错**：如果 ISO 启动后无法看到启动项，可能是 `isolinux` 找不到配置文件。你可以在命令行输入 `/xxx/boot/vmlinuz initrd=/xxx/boot/initrfs.img` 来加载 `aufs`。其他常见问题包括 `/run` 文件夹丢失、显卡驱动和网卡驱动配置等。
+
+请注意，这里的步骤是一个简要概述，具体操作可能因 Linux 发行版而异。如果你需要更详细的指导，可以参考相关文档或社区讨论。
+
+¹: [Linux Live 使用方法](https://blog.csdn.net/weixin_33603813/article/details/116995386)
+²: [Linux Live Kit - Wikipedia](https://en.wikipedia.org/wiki/Linux_Live_Kit)
+
+源: 与必应的对话， 2023/11/26
+(1) linux live使用方法,使用linux-live kit对Linux备份／部署_心妍妈妈的博客-CSDN博客. https://blog.csdn.net/weixin_33603813/article/details/116995386.
+(2) Livekit-开源实时音视频基础设施介绍 - 知乎 - 知乎专栏. https://bing.com/search?q=linux+live+kit+%e6%80%8e%e4%b9%88%e4%bd%bf%e7%94%a8.
+(3) 使用linux-live kit对Linux备份／部署_linux吧_百度贴吧. https://tieba.baidu.com/p/2295228917.
+(4) Livekit-开源实时音视频基础设施介绍 - 知乎 - 知乎专栏. https://zhuanlan.zhihu.com/p/474130496.
+(5) livekit 简单上手教程-CSDN博客. https://blog.csdn.net/qq_21602341/article/details/127793608.
+
+
+
+============================================================
+
+哦，看来你遇到了一些问题。让我们来解决一下。
+
+当你在使用 **Linux Live Kit** 时，如果系统报错找不到 `mksquashfs`，你可以按照以下步骤来解决：
+
+1. **编译 SquashFS 工具**：
+    - 首先，确保你已经下载了 SquashFS 的源代码。你可以从这里下载：[SquashFS Sourceforge](https://sourceforge.net/projects/squashfs/) 或者 [SquashFS LZMA](https://www.squashfs-lzma.org/downloads/squashfs4.2.tar.gz)。
+    - 解压下载的源代码文件：`tar -xvzf squashfs4.2.tar.gz`
+    - 进入解压后的目录：`cd squashfs4.2/`
+    - 进入 `squashfs-tools/` 目录：`cd squashfs-tools/`
+    - 编辑 `Makefile` 文件，修改 `INSTALL_DIR` 为你有安装权限的目录，例如：`/home/your_username/usr`
+    - 编译并安装 SquashFS 工具：
+        ```
+        make
+        make install
+        ```
+    - 编译和安装成功后，你会在安装路径下找到两个命令工具：`mksquashfs`（用于压缩只读文件系统）和 `unsquashfs`（用于解压文件系统）。
+
+2. **添加对 XZ 支持**：
+    - 打开 `squashfs-tools/Makefile` 文件。
+    - 将 `XZ_SUPPORT = 1` 前面的注释去掉。
+    - 执行以下操作：
+        ```
+        vi Makefile
+        # 修改 XZ_SUPPORT = 1
+        make clean
+        make
+        ```
+    - 如果报错提示找不到 `lzma.h`，你需要下载并安装 XZ 源码包。你可以从这里下载：[XZ Source](https://tukaani.org/xz/)。
+    - 解压下载的 XZ 源码文件：`tar xzvf xz-5.2.5.tar.gz`
+    - 进入解压后的目录：`cd xz-5.2.5/`
+    - 编译并安装 XZ：
+        ```
+        ./configure --prefix=/home/your_username/usr
+        make
+        make install
+        ```
+    - 将 `include` 目录下的 `lzma.h` 头文件和子目录 `lzma` 拷贝到 `squashfs-tools/` 目录下。
+    - 将 `lib` 目录下的 `liblzma.a` 库拷贝到 `squashfs-tools/` 目录下。
+
+3. **重新编译 SquashFS**：
+    - 再次执行 `make` 编译 SquashFS。
+    - 执行 `make install` 将 `mksquashfs` 和 `unsquashfs` 安装到指定路径下。
+
+请注意，使用支持 XZ 的 `mksquashfs` 压缩得到的文件系统，用不支持 XZ 的 `unsquashfs` 无法解压。如果需要一直使用 `mksquashfs` 和 `unsquashfs`，需要将对应路径添加到环境变量中。
+
+希望这些步骤能帮助你解决问题！如果还有其他疑问，欢迎继续提问。🙂
+
+源: 与必应的对话， 2023/11/26
+(1) squashfs介绍和安装_unsquashfs-CSDN博客. https://blog.csdn.net/mayue_web/article/details/105682004.
+(2) mksqushfs linux文件系统_mksquashfs命令详解-CSDN博客. https://bing.com/search?q=mksquashfs+%e6%89%be%e4%b8%8d%e5%88%b0%e6%80%8e%e4%b9%88%e5%8a%9e.
+(3) mksqushfs linux文件系统_mksquashfs命令详解-CSDN博客. https://blog.csdn.net/tgdzsjh/article/details/42123769.
+(4) mkfs.xfs 命令找不到的解决方法 - CSDN博客. https://blog.csdn.net/love_3556/article/details/52493092.
+(5) [转发]ubuntu 制作squashfs - neights - 博客园. https://www.cnblogs.com/neights/p/14385330.html.
+(6) undefined. https://sourceforge.net/projects/squashfs/.
+(7) undefined. https://www.squashfs-lzma.org.
+(8) undefined. https://www.squashfs-lzma.org/downloads/squashfs4.2.tar.gz.
+(9) undefined. https://blog.csdn.net/snowpiaop/article/details/52982997.
+(10) undefined. https://tukaani.org/xz/.
+(11) undefined. https://baike.baidu.com/item/squashfs/6036237?fr=aladdin.
+(12) undefined. https://blog.csdn.net/lurayvis/article/details/10242441.
+(13) undefined. https://blog.csdn.net/qq_27901091/article/details/97617505.
+(14) undefined. https://blog.csdn.net/wuqingwei/article/details/79235210.
